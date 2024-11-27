@@ -1,0 +1,133 @@
+```{r}
+install.packages(c("brms", "rstan", "tidyverse", "sf"))
+```
+
+```{r}
+library(brms)
+library(rstan)
+library(tidyverse)
+library(sf)
+```
+
+```{r}
+crime_data <- read.csv("Data - Sheet2.csv")
+```
+
+```{r}
+# Convert DATE_OCC to proper Date format and create 'day_of_week'
+crime_data <- crime_data %>%
+  mutate(
+    # Convert DATE_OCC to Date format (m/d/yyyy) if not already in Date format
+    DATE_OCC = as.Date(DATE.OCC, format="%m/%d/%Y"),
+    
+    # Create 'day_of_week' as a factor with specific order
+    day_of_week = factor(weekdays(DATE_OCC), levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")),
+    has_weapon = ifelse(!is.na(Weapon.Used.Cd), 1, 0),
+    # Convert TIME.OCC into hours and minutes
+    hour = floor(TIME.OCC / 100),    # Get the hour part (e.g., 2230 -> 22)
+    minute = TIME.OCC %% 100,        # Get the minute part (e.g., 2230 -> 30)
+    time_of_day = hour + minute / 60 # Combine into a decimal time (e.g., 22:30 -> 22.5)
+  )
+crime_data$AREA_NAME <- as.factor(crime_data$`AREA.NAME`)
+```
+
+```{r}
+crime_data <- crime_data %>%
+  mutate(
+    time_of_day_category = case_when(
+      hour >= 6 & hour < 12 ~ "Morning",
+      hour >= 12 & hour < 18 ~ "Afternoon",
+      hour >= 18 & hour < 22 ~ "Evening",
+      TRUE ~ "Night"
+    )
+  )
+```
+
+```{r}
+# Combine rare area names into "Other" category
+crime_data$`AREA_NAME` <- fct_lump(crime_data$`AREA_NAME`, n = 10)  # Keep the 10 most common areas
+crime_data$`AREA_NAME` <- factor(crime_data$`AREA_NAME`)  # Relevel the factor
+```
+
+```{r}
+crime_data$day_type <- ifelse(crime_data$day_of_week %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), "Weekday", "Weekend")
+```
+
+```{r}
+crime_data$area_type <- case_when(
+  crime_data$AREA_NAME %in% c("Hollywood", "Rampart", "Central") ~ "High Crime",
+  crime_data$AREA_NAME %in% c("Van Nuys", "West Valley", "Southwest", "Harbor") ~ "Low Crime",
+  TRUE ~ "Other"
+)
+```
+
+```{r}
+head(crime_data)
+```
+
+```{r}
+# Define priors
+prior_intercept <- prior(normal(0, 5), class = "Intercept")
+prior_vict_age <- prior(normal(0, 2), class = "b", coef = "Vict.Age")
+
+model <- brm(
+  formula = has_weapon ~ Vict.Age + day_type + time_of_day_category,
+  family = bernoulli(link = "logit"),
+  data = crime_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  thin = 1,
+  prior = c(prior_intercept, prior_vict_age)  # No priors for factors needed here
+)
+
+# Check the model summary
+summary(model)
+```
+
+```{r}
+# Posterior summary for all parameters
+posterior_summary <- summary(model)$fixed
+print(posterior_summary)
+
+# Alternatively, use the `posterior` package to extract posterior samples:
+library(posterior)
+posterior_samples <- as.array(model)
+```
+
+```{r}
+# Posterior predictive checks (to assess fit)
+pp_check(model)
+```
+
+```{r}
+# Plot the conditional effects of day_type and time_of_day_category
+conditional_effects(model)
+```
+
+```{r}
+# Hierarchical model with random intercepts and random slopes for area_type
+model_hierarchical <- brm(
+  formula = has_weapon ~ Vict.Age + day_type + time_of_day_category + (1 | area_type),
+  family = bernoulli(link = "logit"),
+  data = crime_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  thin = 1,
+  prior = c(prior_intercept, prior_vict_age)
+)
+
+# Check the model summary
+summary(model_hierarchical)
+```
+
+```{r}
+# Posterior predictive checks (to assess fit)
+pp_check(model_hierarchical)
+```
+
+```{r}
+# Plot the conditional effects of day_type and time_of_day_category
+conditional_effects(model_hierarchical)
+```
