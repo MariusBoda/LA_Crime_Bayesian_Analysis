@@ -15,7 +15,7 @@ library(osmdata)
 ```
 
 ```{r}
-crime_data <- read.csv("Data - Sheet2.csv")
+crime_data <- read.csv("Data/Data - Sheet2.csv")
 ```
 
 ```{r}
@@ -184,16 +184,47 @@ ggplot(data = df_sf) +
 ```
 
 ```{r}
-install.packages("leaflet")
 library(leaflet)
+library(htmlwidgets)
 
-leaflet(data = crime_data) %>%
+# Create the leaflet map
+my_map <- leaflet(data = crime_data) %>%
   addTiles() %>%
   addCircleMarkers(
     ~LON, ~LAT,
     radius = 5,
     color = "red",
-    popup = ~paste("Crime Code: ", Crm.Cd)
+    popup = ~paste("Crime Code: ", Crm.Cd.Desc)  # Adjust if needed
   ) %>%
   setView(lng = -118.245, lat = 34.055, zoom = 14)
+
+# Save the map as an HTML file
+saveWidget(my_map, "Crime_Map_LA.html")
+```
+
+```{r}
+library(leaflet)
+library(htmlwidgets)
+
+# Add a new color column based on the presence of Weapon.Desc
+crime_data$color <- ifelse(is.na(crime_data$Weapon.Desc) | crime_data$Weapon.Desc == "",
+                           "yellow",  # No weapon description
+                           "red")     # Has weapon description
+
+# Create the leaflet map
+my_map <- leaflet(data = crime_data) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~LON, ~LAT,
+    radius = 5,
+    color = ~color,  # Use the color column
+    popup = ~paste(
+      "Crime Code: ", Crm.Cd,
+      "<br>Weapon: ", ifelse(is.na(Weapon.Desc), "None", Weapon.Desc)
+    )
+  ) %>%
+  setView(lng = -118.245, lat = 34.055, zoom = 14)
+
+# Save the map as an HTML file
+saveWidget(my_map, "Weapon_Crime_Map_LA.html")
 ```
