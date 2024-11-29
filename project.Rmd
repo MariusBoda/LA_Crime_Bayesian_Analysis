@@ -1,5 +1,8 @@
 ```{r}
 install.packages(c("brms", "rstan", "tidyverse", "sf"))
+install.packages("ggplot2")
+install.packages("sf")
+install.packages("osmdata")
 ```
 
 ```{r}
@@ -7,6 +10,8 @@ library(brms)
 library(rstan)
 library(tidyverse)
 library(sf)
+library(ggplot2)
+library(osmdata)
 ```
 
 ```{r}
@@ -154,4 +159,41 @@ conditional_effects(model_hierarchical)
 ```{r}
 loo(model)
 loo(model_hierarchical)
+```
+
+```{r}
+# Define a smaller bounding box for Downtown Los Angeles
+bbox <- c(left = -118.2700, bottom = 34.0400, right = -118.2200, top = 34.0700)
+
+# Get the OpenStreetMap data for the smaller area
+la_map_osm <- opq(bbox) %>%
+  osmdata_sf()
+
+# Convert the dataframe to an sf object
+df_sf <- st_as_sf(crime_data, coords = c("LON", "LAT"), crs = 4326)  # EPSG:4326 for WGS 84
+
+# Create a map with the OpenStreetMap background and crime data points
+# Display plot directly in RStudio's plot window
+ggplot(data = df_sf) + 
+  geom_sf(aes(fill = "blue"),  # Fill color for dots
+          color = "black",     # Outline color
+          size = 2) +          # Size of dots
+  theme_minimal() + 
+  ggtitle("Map of Data in Los Angeles") +
+  theme(legend.position = "none")  # Optional: remove legend
+```
+
+```{r}
+install.packages("leaflet")
+library(leaflet)
+
+leaflet(data = crime_data) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~LON, ~LAT,
+    radius = 5,
+    color = "red",
+    popup = ~paste("Crime Code: ", Crm.Cd)
+  ) %>%
+  setView(lng = -118.245, lat = 34.055, zoom = 14)
 ```
