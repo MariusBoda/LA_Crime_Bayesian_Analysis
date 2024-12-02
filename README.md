@@ -1,3 +1,3 @@
 # Documentation
 
-Please see the [README.pdf](./your_readme.pdf) for detailed information.
+Please see the [README.pdf](./BDA_Project_Report.pdf) for detailed information.
