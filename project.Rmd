@@ -19,6 +19,128 @@ crime_data <- read.csv("Data/Data - Sheet2.csv")
 ```
 
 ```{r}
+# Load necessary libraries
+library(brms)
+library(dplyr)
+
+# Define 'has_weapon' based on Weapon.Used.Cd
+crime_data <- crime_data %>%
+  mutate(
+    has_weapon = ifelse(!is.na(Weapon.Used.Cd) & Weapon.Used.Cd != "", 1, 0),  # 1 if weapon used, 0 otherwise
+    hour = floor(TIME.OCC / 100),  # Extract hour from TIME.OCC
+    minute = TIME.OCC %% 100,      # Extract minute from TIME.OCC
+    time_of_day = hour + minute / 60  # Convert to fractional hour (e.g., 10:30 becomes 10.5)
+  )
+
+# Define priors for intercept and slope (optional, can adjust as needed)
+prior_intercept <- prior(normal(0, 5), class = "Intercept")
+prior_slope <- prior(normal(0, 2), class = "b", coef = "time_of_day")
+
+# Fit the Bayesian logistic regression model
+model_time_only <- brm(
+  formula = has_weapon ~ time_of_day,
+  family = bernoulli(link = "logit"),
+  data = crime_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  thin = 1,
+  prior = c(prior_intercept, prior_slope)
+)
+
+# Display the model summary
+summary(model_time_only)
+```
+
+```{r}
+library(ggplot2)
+
+# Get conditional effects from the model
+cond_effects <- conditional_effects(model_time_only, robust = TRUE)
+
+# Extract the data for time_of_day from the conditional_effects output
+plot_data <- as.data.frame(cond_effects$time_of_day)
+
+# Create the plot
+ggplot(plot_data, aes(x = time_of_day, y = estimate__)) +
+  # Plot the uncertainty ribbon (95% CI)
+  geom_ribbon(aes(ymin = lower__, ymax = upper__), fill = "blue", alpha = 0.3) +
+  # Plot the individual data points (or posterior samples)
+  geom_point(data = crime_data, aes(x = time_of_day, y = has_weapon), 
+             color = "red", alpha = 0.5, size = 1) +
+  # Add a line to show the trend
+  geom_line(color = "black", size = 1) +
+  # Customize the plot
+  labs(
+    title = "Probability of Weapon Use in Crimes by Time of Day",
+    x = "Time of Day (Hour)",
+    y = "Probability of Weapon Use"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Load necessary libraries
+library(brms)
+library(dplyr)
+
+# Define 'has_weapon' based on Weapon.Used.Cd
+crime_data <- crime_data %>%
+  mutate(
+    has_weapon = ifelse(!is.na(Weapon.Used.Cd) & Weapon.Used.Cd != "", 1, 0),  # 1 if weapon used, 0 otherwise
+    hour = floor(TIME.OCC / 100),  # Extract hour from TIME.OCC
+    minute = TIME.OCC %% 100,      # Extract minute from TIME.OCC
+    time_of_day = hour + minute / 60  # Convert to fractional hour (e.g., 10:30 becomes 10.5)
+  )
+
+# Define priors for intercept and slope (optional, can adjust as needed)
+prior_intercept <- prior(normal(0, 5), class = "Intercept")
+prior_slope <- prior(normal(0, 2), class = "b", coef = "time_of_day")
+
+# Fit the Bayesian logistic regression model
+model_time_only_h <- brm(
+  formula = has_weapon ~ time_of_day + (1 | Premis_Group),
+  family = bernoulli(link = "logit"),
+  data = crime_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  thin = 1,
+  prior = c(prior_intercept, prior_slope)
+)
+
+# Display the model summary
+summary(model_time_only_h)
+
+library(ggplot2)
+
+# Get conditional effects from the model
+cond_effects <- conditional_effects(model_time_only_h, robust = TRUE)
+
+# Extract the data for time_of_day from the conditional_effects output
+plot_data <- as.data.frame(cond_effects$time_of_day)
+
+# Create the plot
+ggplot(plot_data, aes(x = time_of_day, y = estimate__)) +
+  # Plot the uncertainty ribbon (95% CI)
+  geom_ribbon(aes(ymin = lower__, ymax = upper__), fill = "blue", alpha = 0.3) +
+  # Plot the individual data points (or posterior samples)
+  geom_point(data = crime_data, aes(x = time_of_day, y = has_weapon), 
+             color = "red", alpha = 0.5, size = 1) +
+  # Add a line to show the trend
+  geom_line(color = "black", size = 1) +
+  # Customize the plot
+  labs(
+    title = "Probability of Weapon Use in Crimes by Time of Day",
+    x = "Time of Day (Hour)",
+    y = "Probability of Weapon Use"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
 crime_data <- crime_data %>%
   mutate(
     # Apply thematic grouping directly
@@ -32,7 +154,7 @@ crime_data <- crime_data %>%
     ),
   
     # Convert DATE_OCC to Date
-    DATE_OCC = as.Date(DATE_OCC, format = "%m/%d/%Y"),
+    DATE_OCC = as.Date(DATE.OCC, format = "%m/%d/%Y"),
     
     # Create 'day_of_week' factor
     day_of_week = factor(weekdays(DATE_OCC), levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")),
@@ -126,7 +248,11 @@ pp_check(model)
 
 ```{r}
 # Plot the conditional effects of day_type and time_of_day_category
-conditional_effects(model)
+
+```
+
+```{r}
+
 ```
 
 ```{r}
@@ -157,8 +283,7 @@ conditional_effects(model_hierarchical)
 ```
 
 ```{r}
-loo(model)
-loo(model_hierarchical)
+loo(model,model_hierarchical)
 ```
 
 ```{r}
@@ -227,4 +352,106 @@ my_map <- leaflet(data = crime_data) %>%
 
 # Save the map as an HTML file
 saveWidget(my_map, "Weapon_Crime_Map_LA.html")
+```
+
+```{r}
+library(dplyr)
+# Filter rows with non-missing Vict.Sex and Vict.Descent
+crime_data <- crime_data %>%
+  filter(!is.na(Vict.Sex), !is.na(Vict.Descent))
+
+crime_data <- crime_data %>%
+  mutate(
+    Vict.Sex = as.factor(Vict.Sex),
+    Vict.Descent = as.factor(Vict.Descent)
+  )
+
+model <- brm(
+  formula = has_weapon ~ Vict.Age + day_type + time_of_day_category + Premis_Group + Vict.Sex + Vict.Descent,
+  family = bernoulli(link = "logit"),
+  data = crime_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  thin = 1,
+  prior = c(prior(normal(0, 5), class = "Intercept"),
+            prior(normal(0, 2), class = "b", coef = "Vict.Age"),
+            prior(normal(0, 1), class = "b"))  # Weakly informative priors for all coefficients
+)
+
+# Group Vict.Age into age bins
+crime_data <- crime_data %>%
+  mutate(Age_Group = case_when(
+    Vict.Age < 18 ~ "<18",
+    Vict.Age >= 18 & Vict.Age < 30 ~ "18-29",
+    Vict.Age >= 30 & Vict.Age < 50 ~ "30-49",
+    Vict.Age >= 50 ~ "50+"
+  ))
+
+# Convert Age_Group to a factor
+crime_data <- crime_data %>%
+  mutate(Age_Group = as.factor(Age_Group))
+
+
+model_hierarchical <- brm(
+  formula = has_weapon ~ Vict.Age + day_type + time_of_day_category + Premis_Group + Vict.Sex + Vict.Descent +
+            (1 | Vict.Sex:Vict.Descent:Age_Group:Premis_Group),  # Random intercepts for sex-descent-age groups
+  family = bernoulli(link = "logit"),
+  data = crime_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  thin = 1,
+  prior = c(
+    prior(normal(0, 5), class = "Intercept"),          # Intercept prior
+    prior(normal(0, 2), class = "b", coef = "Vict.Age"), # Vict.Age prior
+    prior(normal(0, 1), class = "b"),                 # Generic prior for other predictors
+    prior(student_t(3, 0, 2.5), class = "sd")         # Prior for standard deviation of random effects
+  )
+)
+```
+
+```{r}
+summary(model)
+summary(model_hierarchical)
+```
+
+```{r}
+pp_check(model_hierarchical)
+pp_check(model_hierarchical)
+```
+
+```{r}
+# Obtain posterior predictions for both models
+preds <- posterior_predict(model)
+preds_hierarchical <- posterior_predict(model_hierarchical)
+
+# Convert predictions to binary outcomes (threshold 0.5)
+pred_binary <- ifelse(apply(preds, 2, mean) > 0.5, 1, 0)
+pred_binary_hierarchical <- ifelse(apply(preds_hierarchical, 2, mean) > 0.5, 1, 0)
+
+# Create confusion matrix for the first model
+conf_matrix <- table(Predicted = pred_binary, Actual = crime_data$has_weapon)
+
+# Create confusion matrix for the hierarchical model
+conf_matrix_hierarchical <- table(Predicted = pred_binary_hierarchical, Actual = crime_data$has_weapon)
+
+# Print the confusion matrices
+print("Confusion Matrix for Model:")
+print(conf_matrix)
+print("Confusion Matrix for Hierarchical Model:")
+print(conf_matrix_hierarchical)
+
+# Accuracy calculation
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+accuracy_hierarchical <- sum(diag(conf_matrix_hierarchical)) / sum(conf_matrix_hierarchical)
+
+# Print accuracies
+print(paste("Accuracy for Model:", round(accuracy, 4)))
+print(paste("Accuracy for Hierarchical Model:", round(accuracy_hierarchical, 4)))
+```
+
+```{r}
+conditional_effects(model_hierarchical)
+pp_check(model_hierarchical)
 ```
