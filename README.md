@@ -1,5 +1,5 @@
 # Documentation
 
-View the full documentation here: [README.pdf](./README.pdf)
+View the full documentation here: [BDA_Project_Report.pdf](./BDA_Project_Report.pdf)
 
-Or open it directly in the browser using [this link](./README.pdf).
+Or open it directly in the browser using [this link](./BDA_Project_Report.pdf).
