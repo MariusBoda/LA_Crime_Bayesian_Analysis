@@ -1,0 +1,270 @@
+```{r}
+# Assuming the time column is called 'time_column' (adjust as needed)
+merged_data$hour <- as.numeric(sub(":.*", "", merged_data$Interval_Group))
+```
+
+```{r}
+library(ggplot2)
+
+# Plotting the fraction of crimes with a weapon used for each 1-hour block as a dot plot
+ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) +  # Dot plot
+  geom_text(aes(label = paste(weapon_used, "/", total)), 
+            vjust = -1.5, color = "black", size = 2) +  # Add text labels showing "weapon_used / total_crimes"
+  labs(title = "Fraction of Crimes with a Weapon Used by 1-Hour Block",
+       x = "1-Hour Block",
+       y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+library(ggplot2)
+library(brms)
+
+fit_logistic <- brm(
+  formula = weapon_used | trials(total) ~ hour,
+  data = merged_data,
+  family = binomial(),
+  prior = c(
+    prior(normal(1, 5), class = "Intercept"),   # Baseline weapon use
+    prior(normal(2, 1), class = "b", coef = "hour")  # Effect of hour on weapon use
+  ),
+  chains = 4,
+  iter = 2000,
+  warmup = 1000
+)
+```
+
+```{r}
+summary(fit_logistic)
+```
+
+```{r}
+# Generate conditional effects from the brms model
+conditional_data <- conditional_effects(fit_logistic, effects = "hour")$hour
+
+# Create the combined plot
+ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) +  # Dot plot for actual data
+  geom_text(aes(label = paste(weapon_used, "/", total)),  # Show "weapon_used / total"
+            vjust = -1.5, color = "black", size = 2) +
+  # Add model predictions
+  geom_line(data = conditional_data, aes(x = hour, y = estimate__),  # Model prediction line
+            color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data, aes(x = hour, ymin = lower__, ymax = upper__),  # Confidence interval
+              fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Fraction of Crimes with a Weapon Used by 1-Hour Block",
+       x = "1-Hour Block",
+       y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Generate conditional effects from the brms model
+conditional_data <- conditional_effects(fit_logistic, effects = "hour")$hour
+
+# Create the combined plot
+ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) +  # Dot plot for actual data
+  geom_text(aes(label = paste(weapon_used, "/", total)),  # Show "weapon_used / total"
+            vjust = -1.5, color = "black", size = 2) +
+  # Add model predictions
+  geom_line(data = conditional_data, aes(x = hour, y = estimate__),  # Model prediction line
+            color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data, aes(x = hour, ymin = lower__, ymax = upper__),  # Confidence interval
+              fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Fraction of Crimes with a Weapon Used by 1-Hour Block",
+       x = "1-Hour Block",
+       y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+fit_poly <- brm(
+  formula = weapon_used | trials(total) ~ poly(hour, 2),
+  data = merged_data,
+  family = binomial(),
+  prior = c(
+    prior(normal(10, 2), class = "Intercept"),   # Baseline weapon use
+    prior(normal(3, 5), class = "b", coef = "polyhour21"),  # Linear term (hour)
+    prior(normal(0, 7), class = "b", coef = "polyhour22")   # Quadratic term (hour^2)
+  ),
+  chains = 6,
+  iter = 2000,
+  warmup = 1000
+)
+```
+
+```{r}
+# Generate conditional effects from the brms model
+conditional_data <- conditional_effects(fit_poly, effects = "hour")$hour
+
+# Create the combined plot
+ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) +  # Dot plot for actual data
+  geom_text(aes(label = paste(weapon_used, "/", total)),  # Show "weapon_used / total"
+            vjust = -1.5, color = "black", size = 2) +
+  # Add model predictions
+  geom_line(data = conditional_data, aes(x = hour, y = estimate__),  # Model prediction line
+            color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data, aes(x = hour, ymin = lower__, ymax = upper__),  # Confidence interval
+              fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Fraction of Crimes with a Weapon Used by 1-Hour Block",
+       x = "1-Hour Block",
+       y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+fit_spline <- brm(
+  formula = weapon_used | trials(total) ~ s(hour),
+  data = merged_data,
+  family = binomial(),
+  prior = c(
+    prior(normal(20, 10), class = "Intercept")  # Prior for the Intercept
+  ),
+  chains = 4,
+  iter = 2000,
+  warmup = 1000
+)
+```
+
+```{r}
+# Generate conditional effects from the brms model
+conditional_data <- conditional_effects(fit_spline, effects = "hour")$hour
+
+# Create the combined plot
+ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) +  # Dot plot for actual data
+  geom_text(aes(label = paste(weapon_used, "/", total)),  # Show "weapon_used / total"
+            vjust = -1.5, color = "black", size = 2) +
+  # Add model predictions
+  geom_line(data = conditional_data, aes(x = hour, y = estimate__),  # Model prediction line
+            color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data, aes(x = hour, ymin = lower__, ymax = upper__),  # Confidence interval
+              fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Fraction of Crimes with a Weapon Used by 1-Hour Block",
+       x = "1-Hour Block",
+       y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(xintercept = c(6, 18), linetype = "dashed", color = "gray") +
+annotate("text", x = 6, y = 0.65, label = "Morning", angle = 90, vjust = -1, hjust = 0.8) +
+annotate("text", x = 18, y = 0.65, label = "Evening", angle = 90, vjust = -1, hjust = 0.8)
+```
+
+```{r}
+pp_check(fit_spline)
+```
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(gridExtra)
+
+# Plot 1: Fraction of crimes with a weapon used for each 1-hour block as a dot plot
+plot1 <- ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) + 
+  geom_text(aes(label = paste(weapon_used, "/", 1)), vjust = -1.5, color = "black", size = 2) +
+  labs(title = "Fraction of Crimes with a Weapon Used by 1-Hour Block",
+       x = "1-Hour Block", y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 2: Actual data + model predictions with a logistic regression model
+conditional_data1 <- conditional_effects(fit_logistic, effects = "hour")$hour
+plot2 <- ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) + 
+  geom_text(aes(label = paste(weapon_used, "/", total)), vjust = -1.5, color = "black", size = 2) +
+  geom_line(data = conditional_data1, aes(x = hour, y = estimate__), color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data1, aes(x = hour, ymin = lower__, ymax = upper__), fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Logistic Regression Model",
+       x = "1-Hour Block", y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 3: Actual data + model predictions with a polynomial regression model
+conditional_data2 <- conditional_effects(fit_poly, effects = "hour")$hour
+plot3 <- ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) + 
+  geom_text(aes(label = paste(weapon_used, "/", total)), vjust = -1.5, color = "black", size = 2) +
+  geom_line(data = conditional_data2, aes(x = hour, y = estimate__), color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data2, aes(x = hour, ymin = lower__, ymax = upper__), fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Polynomial Model",
+       x = "1-Hour Block", y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 4: Actual data + model predictions with a spline regression model
+conditional_data3 <- conditional_effects(fit_spline, effects = "hour")$hour
+plot4 <- ggplot(merged_data, aes(x = hour, y = weapon_fraction)) +
+  geom_point(color = "blue", size = 4) + 
+  geom_text(aes(label = paste(weapon_used, "/", total)), vjust = -1.5, color = "black", size = 2) +
+  geom_line(data = conditional_data3, aes(x = hour, y = estimate__), color = "red", size = 1.5, inherit.aes = FALSE) +
+  geom_ribbon(data = conditional_data3, aes(x = hour, ymin = lower__, ymax = upper__), fill = "red", alpha = 0.2, inherit.aes = FALSE) +
+  labs(title = "Spline Model",
+       x = "1-Hour Block", y = "Fraction of Crimes with Weapon Used") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(xintercept = c(6, 18), linetype = "dashed", color = "gray") +
+  annotate("text", x = 6, y = 0.65, label = "Morning", angle = 90, vjust = -1, hjust = 0.8) +
+  annotate("text", x = 18, y = 0.65, label = "Evening", angle = 90, vjust = -1, hjust = 0.8)
+
+# Arrange the plots in a 2x2 grid
+grid.arrange(plot1, plot2, plot3, plot4, ncol = 2)
+# Save the combined plot as a larger image
+ggsave("combined_plot.png", grid.arrange(plot1, plot2, plot3, plot4, ncol = 2), 
+       width = 14, height = 10, dpi = 300)  # Adjust width, height, and dpi as needed
+```
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(brms)  # or rstanarm if you're using that
+library(gridExtra)  # For arranging multiple plots
+
+# Generate pp_check plots for each model
+pp_logistic <- pp_check(fit_logistic)
+pp_poly <- pp_check(fit_poly)
+pp_spline <- pp_check(fit_spline)
+
+# Plot them side by side using grid.arrange (for a 1-row layout, for example)
+grid.arrange(pp_logistic + ggtitle("Logistic Model PP Check"), 
+             pp_poly + ggtitle("Polynomial Model PP Check"), 
+             pp_spline + ggtitle("Spline Model PP Check"), 
+             ncol = 3)
+
+# Save the combined plot as a PNG
+ggsave("pp_check_combined.png", 
+       grid.arrange(pp_logistic + ggtitle("Logistic Model PP Check"), 
+                    pp_poly + ggtitle("Polynomial Model PP Check"), 
+                    pp_spline + ggtitle("Spline Model PP Check"), 
+                    ncol = 3), 
+       width = 14, height = 5, dpi = 300)
+```
+
+```{r}
+loo(fit_logistic, fit_spline)
+```
+
+```{r}
+# Obtain posterior predictions for the spline model (predicts counts)
+preds_spline <- posterior_predict(fit_spline)
+
+# Calculate the mean predicted fraction (proportion of weapon use) per hour
+pred_fraction_spline <- apply(preds_spline, 2, mean) / merged_data$total
+
+# Convert predicted fractions to binary outcomes (threshold 0.5)
+pred_binary_spline <- ifelse(pred_fraction_spline > 0.5, 1, 0)
+
+# Create actual binary outcomes (1 if fraction > 0, else 0)
+actual_binary <- ifelse(merged_data$weapon_used > 0, 1, 0)
+
+# Create confusion matrix
+conf_matrix_spline <- table(Predicted = pred_binary_spline, Actual = actual_binary)
+
+# Print the confusion matrix for the spline model
+print("Confusion Matrix for Spline Model:")
+print(conf_matrix_spline)
+
+# Accuracy calculation for the spline model
+accuracy_spline <- sum(diag(conf_matrix_spline)) / sum(conf_matrix_spline)
+
+# Print accuracy for the spline model
+print(paste("Accuracy for Spline Model:", round(accuracy_spline, 4)))
+```
