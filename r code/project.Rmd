@@ -375,8 +375,8 @@ model <- brm(
   warmup = 1000,
   thin = 1,
   prior = c(prior(normal(0, 5), class = "Intercept"),
-            prior(normal(0, 2), class = "b", coef = "Vict.Age"),
-            prior(normal(0, 1), class = "b"))  # Weakly informative priors for all coefficients
+            prior(normal(2, 2), class = "b", coef = "Vict.Age"),
+            prior(normal(0, 1), class = "b")) 
 )
 
 # Group Vict.Age into age bins
@@ -412,6 +412,15 @@ model_hierarchical <- brm(
 ```
 
 ```{r}
+get_prior(
+  formula = has_weapon ~ Vict.Age + day_type + time_of_day_category + 
+            Premis_Group + Vict.Sex + Vict.Descent,
+  data = crime_data,
+  family = bernoulli(link = "logit")
+)
+```
+
+```{r}
 summary(model)
 summary(model_hierarchical)
 ```
@@ -419,6 +428,11 @@ summary(model_hierarchical)
 ```{r}
 pp_check(model_hierarchical)
 pp_check(model_hierarchical)
+```
+
+```{r}
+conditional_effects(model)
+conditional_effects(model_hierarchical)
 ```
 
 ```{r}
@@ -452,6 +466,6 @@ print(paste("Accuracy for Hierarchical Model:", round(accuracy_hierarchical, 4))
 ```
 
 ```{r}
-conditional_effects(model_hierarchical)
+conditional_effects(model)
 pp_check(model_hierarchical)
 ```

@@ -121,11 +121,20 @@ fit_spline <- brm(
   data = merged_data,
   family = binomial(),
   prior = c(
-    prior(normal(20, 10), class = "Intercept")  # Prior for the Intercept
+    prior(student_t(3, 0.5, 2), class = "Intercept"),  # Prior for the intercept
+    prior(student_t(3, 0.5, 2), class = "b", coef = "shour_1")  # effect of the first spline basis is centered at 0
   ),
   chains = 4,
   iter = 2000,
   warmup = 1000
+)
+```
+
+```{r}
+get_prior(
+  formula = weapon_used | trials(total) ~ s(hour),
+  data = merged_data,
+  family = binomial()
 )
 ```
 
@@ -154,6 +163,7 @@ annotate("text", x = 18, y = 0.65, label = "Evening", angle = 90, vjust = -1, hj
 
 ```{r}
 pp_check(fit_spline)
+summary(fit_spline)
 ```
 
 ```{r}
@@ -239,7 +249,7 @@ ggsave("pp_check_combined.png",
 ```
 
 ```{r}
-loo(fit_logistic, fit_spline)
+loo_compare(loo(fit_poly), loo(fit_spline))
 ```
 
 ```{r}
